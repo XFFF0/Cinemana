@@ -1,0 +1,75 @@
+name: Cinemana
+options:
+  bundleIdPrefix: com.cinemana
+  deploymentTarget:
+    iOS: "15.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGNING_ALLOWED: "NO"
+
+targets:
+  Cinemana:
+    type: application
+    platform: iOS
+    sources:
+      - path: Cinemana
+        excludes:
+          - "**/.DS_Store"
+    dependencies:
+      - package: Kingfisher
+    settings:
+      base:
+        INFOPLIST_FILE: Cinemana/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.cinemana.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        GENERATE_INFOPLIST_FILE: "NO"
+        IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+    info:
+      path: Cinemana/Info.plist
+      properties:
+        CFBundleDisplayName: Cinemana
+        CFBundleName: Cinemana
+        CFBundleShortVersionString: "1.0.0"
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations: {}
+
+packages:
+  Kingfisher:
+    url: https://github.com/onevcat/Kingfisher
+    from: "7.10.0"
+
+schemes:
+  Cinemana:
+    build:
+      targets:
+        Cinemana: all
+    run:
+      config: Debug
+    archive:
+      config: Release
