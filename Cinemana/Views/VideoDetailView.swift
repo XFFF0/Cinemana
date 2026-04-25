@@ -7,153 +7,220 @@ struct VideoDetailView: View {
     @StateObject private var viewModel = VideoDetailViewModel()
     @State private var showPlayer = false
     @State private var selectedQuality: String = "720"
-    
+    @State private var showSubtitleSheet = false
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                ZStack {
-                    KFImage(URL(string: video.posterUrl ?? ""))
-                        .resizable()
-                        .aspectRatio(16/9, contentMode: .fill)
-                        .frame(height: 250)
-                        .clipped()
-                    
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 250)
-                    
-                    Button(action: { showPlayer = true }) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.white)
-                    }
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(video.title)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                    
-                    HStack(spacing: 16) {
-                        if let year = video.year {
-                            Label(year, systemImage: "calendar")
-                        }
-                        if let duration = video.duration {
-                            Label(duration, systemImage: "clock")
-                        }
-                        if let rate = video.rate {
-                            Label(rate, systemImage: "star.fill")
-                        }
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    
-                    if let content = video.arContent ?? video.enContent {
-                        Text(content)
-                            .font(.body)
-                            .foregroundColor(.white.opacity(0.8))
-                            .lineLimit(4)
-                    }
-                    
-                    HStack(spacing: 12) {
-                        Button(action: { showPlayer = true }) {
-                            Label("Watch", systemImage: "play.fill")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.red)
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
-                        }
-                        
-                        Button(action: { viewModel.downloadVideo(video, quality: selectedQuality) }) {
-                            Label("Download", systemImage: "arrow.down.circle")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.gray.opacity(0.3))
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
-                        }
-                        
-                        Button(action: { viewModel.toggleFavorite(video) }) {
-                            Image(systemName: viewModel.isFavorite ? "heart.fill" : "heart")
-                                .font(.title2)
-                                .foregroundColor(viewModel.isFavorite ? .red : .white)
-                                .padding()
-                        }
-                    }
-                    .padding(.top, 8)
-                    
-                    if let categories = video.categories, !categories.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack {
-                                ForEach(categories, id: \.nb) { category in
-                                    Text(category.name ?? category.nameEn ?? "")
-                                        .font(.caption)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color.gray.opacity(0.3))
-                                        .cornerRadius(15)
-                                }
-                            }
-                        }
-                    }
-                    
-                    if let actors = video.actorsInfo, !actors.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Cast")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack {
-                                    ForEach(actors, id: \.nb) { actor in
-                                        VStack {
-                                            KFImage(URL(string: actor.picture ?? ""))
-                                                .resizable()
-                                                .frame(width: 70, height: 70)
-                                                .clipShape(Circle())
-                                            Text(actor.name ?? "")
-                                                .font(.caption)
-                                                .foregroundColor(.white)
-                                                .lineLimit(1)
-                                        }
-                                        .frame(width: 80)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.top)
-                    }
-                }
-                .padding()
+            VStack(alignment: .leading, spacing: 18) {
+                posterSection
+                infoSection
+                actionsSection
+                categoriesSection
+                castSection
             }
+            .padding(.bottom, 24)
         }
-        .background(Color.black)
+        .background(
+            LinearGradient(colors: [Color.black, Color(red: 0.08, green: 0.09, blue: 0.14)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+        )
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.black, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .fullScreenCover(isPresented: $showPlayer) {
             VideoPlayerView(video: video, quality: selectedQuality)
         }
+        .sheet(isPresented: $showSubtitleSheet) {
+            SubtitleDownloadSheet(video: video)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
         .onAppear {
             viewModel.checkFavorite(video)
         }
     }
+
+    private var posterSection: some View {
+        ZStack(alignment: .bottomLeading) {
+            KFImage(URL(string: video.posterUrl ?? ""))
+                .resizable()
+                .aspectRatio(16/9, contentMode: .fill)
+                .frame(height: 280)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(.black.opacity(0.35))
+                }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(video.title)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    metaPill(text: video.year ?? "-")
+                    metaPill(text: video.duration ?? "--")
+                    metaPill(text: "⭐️ \(video.rate ?? "--")")
+                }
+            }
+            .padding(16)
+
+            Button(action: { showPlayer = true }) {
+                Image(systemName: "play.fill")
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .frame(width: 52, height: 52)
+                    .background(.red)
+                    .clipShape(Circle())
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        }
+        .padding(.horizontal)
+    }
+
+    private var infoSection: some View {
+        Group {
+            if let content = video.arContent ?? video.enContent {
+                Text(content)
+                    .foregroundColor(.white.opacity(0.86))
+                    .padding(14)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal)
+            }
+        }
+    }
+
+    private var actionsSection: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                actionButton(title: "مشاهدة", icon: "play.fill", color: .red) {
+                    showPlayer = true
+                }
+
+                actionButton(title: "تحميل فيديو", icon: "arrow.down.circle.fill", color: .blue) {
+                    viewModel.downloadVideo(video, quality: selectedQuality)
+                }
+            }
+
+            HStack(spacing: 10) {
+                actionButton(title: "تحميل الترجمة من الإنترنت", icon: "captions.bubble.fill", color: .teal) {
+                    showSubtitleSheet = true
+                }
+
+                Button(action: { viewModel.toggleFavorite(video) }) {
+                    Image(systemName: viewModel.isFavorite ? "heart.fill" : "heart")
+                        .font(.title2)
+                        .foregroundColor(viewModel.isFavorite ? .red : .white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var categoriesSection: some View {
+        Group {
+            if let categories = video.categories, !categories.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(categories, id: \.nb) { category in
+                            Text(category.name ?? category.nameEn ?? "")
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
+
+    private var castSection: some View {
+        Group {
+            if let actors = video.actorsInfo, !actors.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("الممثلين")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 14) {
+                            ForEach(actors, id: \.nb) { actor in
+                                VStack(spacing: 8) {
+                                    KFImage(URL(string: actor.picture ?? ""))
+                                        .resizable()
+                                        .frame(width: 68, height: 68)
+                                        .clipShape(Circle())
+
+                                    Text(actor.name ?? "")
+                                        .font(.caption)
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 82)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+            }
+        }
+    }
+
+    private func metaPill(text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.2))
+            .clipShape(Capsule())
+    }
+
+    private func actionButton(title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(color.opacity(0.88))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
 }
 
-class VideoDetailViewModel: ObservableObject {
+final class VideoDetailViewModel: ObservableObject {
     @Published var isFavorite = false
-    @Published var transcodedFiles: [TranscodeFile] = []
-    @Published var isLoading = false
-    
+
     private let downloadManager = DownloadManager.shared
-    
+
     func downloadVideo(_ video: VideoModel, quality: String) {
         downloadManager.downloadVideo(video, quality: quality)
     }
-    
+
+    func downloadSubtitle(video: VideoModel, subtitleURLString: String, languageCode: String) throws {
+        guard let url = URL(string: subtitleURLString),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
+            throw SubtitleError.invalidURL
+        }
+
+        downloadManager.downloadSubtitle(video: video, subtitleURL: url, languageCode: languageCode)
+    }
+
     func toggleFavorite(_ video: VideoModel) {
         Task {
             do {
@@ -170,7 +237,7 @@ class VideoDetailViewModel: ObservableObject {
             }
         }
     }
-    
+
     func checkFavorite(_ video: VideoModel) {
         Task {
             do {
@@ -183,6 +250,65 @@ class VideoDetailViewModel: ObservableObject {
             }
         }
     }
+
+    enum SubtitleError: LocalizedError {
+        case invalidURL
+
+        var errorDescription: String? {
+            "رابط الترجمة غير صحيح"
+        }
+    }
+}
+
+struct SubtitleDownloadSheet: View {
+    let video: VideoModel
+    @StateObject private var viewModel = VideoDetailViewModel()
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var subtitleURL = ""
+    @State private var languageCode = "ar"
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("رابط ملف الترجمة") {
+                    TextField("https://example.com/subtitle.srt", text: $subtitleURL)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    TextField("اللغة (ar / en)", text: $languageCode)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                    }
+                }
+            }
+            .navigationTitle("تحميل الترجمة")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("إلغاء") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("بدء التحميل") {
+                        do {
+                            try viewModel.downloadSubtitle(video: video, subtitleURLString: subtitleURL, languageCode: languageCode)
+                            dismiss()
+                        } catch {
+                            errorMessage = error.localizedDescription
+                        }
+                    }
+                    .disabled(subtitleURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
 }
 
 struct VideoPlayerView: View {
@@ -191,22 +317,22 @@ struct VideoPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
     @State private var isLoading = true
-    
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            
+
             if isLoading {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .scaleEffect(1.5)
             }
-            
+
             if let player = player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             }
-            
+
             VStack {
                 HStack {
                     Button(action: { dismiss() }) {
@@ -220,7 +346,7 @@ struct VideoPlayerView: View {
                     Spacer()
                 }
                 .padding()
-                
+
                 Spacer()
             }
         }
@@ -231,26 +357,26 @@ struct VideoPlayerView: View {
             player?.pause()
         }
     }
-    
+
     private func loadVideo() {
         Task {
             do {
                 let files = try await APIService.shared.getTranscodedFiles(videoId: video.nb)
-                
+
                 guard let selectedFile = files.first(where: { $0.resolution == quality }) ?? files.first,
                       let urlString = selectedFile.videoUrl,
                       let url = URL(string: urlString) else {
                     await MainActor.run { isLoading = false }
                     return
                 }
-                
+
                 let playerItem = AVPlayerItem(url: url)
                 await MainActor.run {
                     self.player = AVPlayer(playerItem: playerItem)
                     self.isLoading = false
                     self.player?.play()
                 }
-                
+
                 try await APIService.shared.addToHistory(videoId: video.nb, kind: video.kind ?? "movie")
             } catch {
                 await MainActor.run { isLoading = false }
@@ -258,19 +384,4 @@ struct VideoPlayerView: View {
             }
         }
     }
-}
-
-#Preview {
-    NavigationStack {
-        VideoDetailView(video: VideoModel(
-            nb: "1",
-            arTitle: "Film Name",
-            enTitle: "Film Name",
-            kind: "movie",
-            year: "2024",
-            duration: "120 min",
-            rate: "8.5"
-        ))
-    }
-    .preferredColorScheme(.dark)
 }

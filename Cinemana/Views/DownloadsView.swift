@@ -5,11 +5,11 @@ import Kingfisher
 struct DownloadsView: View {
     @StateObject private var downloadManager = DownloadManager.shared
     @State private var selectedVideo: DownloadedVideo?
-    
+
     var body: some View {
         NavigationStack {
             Group {
-                if downloadManager.downloadedVideos.isEmpty && downloadManager.downloads.isEmpty {
+                if downloadManager.downloadedVideos.isEmpty && downloadManager.downloads.isEmpty && downloadManager.downloadedSubtitles.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "arrow.down.circle")
                             .font(.system(size: 60))
@@ -17,7 +17,7 @@ struct DownloadsView: View {
                         Text("No downloads yet")
                             .font(.headline)
                             .foregroundColor(.white)
-                        Text("Downloaded movies and series will appear here")
+                        Text("Video and subtitle downloads will appear here")
                             .font(.subheadline)
                             .foregroundColor(.gray)
                     }
@@ -25,7 +25,7 @@ struct DownloadsView: View {
                 } else {
                     List {
                         if !downloadManager.downloads.isEmpty {
-                            Section("Downloading") {
+                            Section("Background downloads") {
                                 ForEach(downloadManager.downloads) { item in
                                     DownloadingRow(item: item) {
                                         downloadManager.cancelDownload(videoId: item.videoId)
@@ -34,9 +34,9 @@ struct DownloadsView: View {
                             }
                             .listRowBackground(Color.black)
                         }
-                        
+
                         if !downloadManager.downloadedVideos.isEmpty {
-                            Section("Downloaded") {
+                            Section("Downloaded videos") {
                                 ForEach(downloadManager.downloadedVideos) { video in
                                     DownloadedRow(video: video)
                                         .listRowBackground(Color.black)
@@ -46,6 +46,23 @@ struct DownloadsView: View {
                                         .swipeActions(edge: .trailing) {
                                             Button(role: .destructive) {
                                                 downloadManager.deleteDownload(video)
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                }
+                            }
+                            .listRowBackground(Color.black)
+                        }
+
+                        if !downloadManager.downloadedSubtitles.isEmpty {
+                            Section("Downloaded subtitles") {
+                                ForEach(downloadManager.downloadedSubtitles) { subtitle in
+                                    SubtitleRow(subtitle: subtitle)
+                                        .listRowBackground(Color.black)
+                                        .swipeActions(edge: .trailing) {
+                                            Button(role: .destructive) {
+                                                downloadManager.deleteSubtitle(subtitle)
                                             } label: {
                                                 Label("Delete", systemImage: "trash")
                                             }
@@ -74,7 +91,7 @@ struct DownloadsView: View {
 struct DownloadingRow: View {
     let item: DownloadItem
     let onCancel: () -> Void
-    
+
     var body: some View {
         HStack(spacing: 12) {
             KFImage(URL(string: item.thumbnailUrl ?? ""))
@@ -83,23 +100,23 @@ struct DownloadingRow: View {
                 .frame(width: 60, height: 90)
                 .cornerRadius(6)
                 .clipped()
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
                     .font(.subheadline)
                     .foregroundColor(.white)
                     .lineLimit(1)
-                
-                Text("\(item.quality)p")
+
+                Text(item.kind == .subtitle ? "Subtitle • \(item.quality)" : "\(item.quality)p")
                     .font(.caption)
                     .foregroundColor(.gray)
-                
+
                 ProgressView(value: item.progress / 100)
-                    .tint(.red)
+                    .tint(item.kind == .subtitle ? .teal : .red)
             }
-            
+
             Spacer()
-            
+
             if item.status == .downloading {
                 Button(action: onCancel) {
                     Image(systemName: "xmark.circle.fill")
@@ -119,7 +136,7 @@ struct DownloadingRow: View {
 
 struct DownloadedRow: View {
     let video: DownloadedVideo
-    
+
     var body: some View {
         HStack(spacing: 12) {
             KFImage(URL(string: video.thumbnailUrl ?? ""))
@@ -128,13 +145,13 @@ struct DownloadedRow: View {
                 .frame(width: 60, height: 90)
                 .cornerRadius(6)
                 .clipped()
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(video.title)
                     .font(.subheadline)
                     .foregroundColor(.white)
                     .lineLimit(2)
-                
+
                 HStack {
                     Text("\(video.quality)p")
                     Text("•")
@@ -143,12 +160,44 @@ struct DownloadedRow: View {
                 .font(.caption)
                 .foregroundColor(.gray)
             }
-            
+
             Spacer()
-            
+
             Image(systemName: "play.circle.fill")
                 .font(.title2)
                 .foregroundColor(.red)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct SubtitleRow: View {
+    let subtitle: DownloadedSubtitle
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "captions.bubble.fill")
+                .font(.title2)
+                .foregroundColor(.teal)
+                .frame(width: 60, height: 60)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(subtitle.title)
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+
+                Text("Language: \(subtitle.languageCode.uppercased())")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                Text(subtitle.downloadedAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
         }
         .padding(.vertical, 4)
     }
@@ -158,16 +207,16 @@ struct LocalPlayerView: View {
     let video: DownloadedVideo
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
-    
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            
+
             if let player = player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             }
-            
+
             VStack {
                 HStack {
                     Button(action: { dismiss() }) {
@@ -181,7 +230,7 @@ struct LocalPlayerView: View {
                     Spacer()
                 }
                 .padding()
-                
+
                 Spacer()
             }
         }
@@ -196,8 +245,6 @@ struct LocalPlayerView: View {
         }
     }
 }
-
-extension DownloadedVideo: Identifiable {}
 
 #Preview {
     DownloadsView()
