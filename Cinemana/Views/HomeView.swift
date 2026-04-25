@@ -3,48 +3,38 @@ import Kingfisher
 
 struct HomeView: View {
     @EnvironmentObject var homeViewModel: HomeViewModel
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                if homeViewModel.isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let error = homeViewModel.errorMessage {
-                    VStack {
-                        Text("Error loading content")
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Button("Retry") {
-                            Task {
-                                await homeViewModel.refresh()
-                            }
-                        }
-                    }
-                } else {
-                    LazyVStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 18) {
+                    if homeViewModel.isLoading {
+                        HomeLoadingSkeleton()
+                            .padding(.top, 4)
+                    } else if let error = homeViewModel.errorMessage {
+                        errorView(error)
+                    } else {
                         if !homeViewModel.banners.isEmpty {
-                            BannerCarousel(banners: homeViewModel.banners)
+                            ModernBannerCarousel(banners: homeViewModel.banners)
                         }
-                        
+
                         if !homeViewModel.newlyVideos.isEmpty {
-                            VideoSection(title: "الأحدث", videos: homeViewModel.newlyVideos)
+                            ModernVideoSection(title: "الأحدث", videos: homeViewModel.newlyVideos)
                         }
-                        
+
                         ForEach(homeViewModel.homeGroups) { group in
                             if let videos = group.videos, !videos.isEmpty {
-                                VideoSection(
-                                    title: group.groupName ?? group.groupNameEn ?? "",
-                                    videos: videos
-                                )
+                                ModernVideoSection(title: group.groupName ?? group.groupNameEn ?? "", videos: videos)
                             }
                         }
                     }
-                    .padding(.bottom, 20)
                 }
+                .padding(.bottom, 24)
             }
-            .background(Color.black)
+            .background(
+                LinearGradient(colors: [Color.black, Color(red: 0.06, green: 0.07, blue: 0.14)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+            )
             .navigationTitle("Cinemana")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.black, for: .navigationBar)
@@ -54,47 +44,83 @@ struct HomeView: View {
             }
         }
     }
-}
 
-struct BannerCarousel: View {
-    let banners: [VideoModel]
-    @State private var currentIndex = 0
-    
-    var body: some View {
-        TabView(selection: $currentIndex) {
-            ForEach(Array(banners.enumerated()), id: \.element.nb) { index, video in
-                NavigationLink(destination: VideoDetailView(video: video)) {
-                    KFImage(URL(string: video.posterUrl ?? ""))
-                        .resizable()
-                        .aspectRatio(16/9, contentMode: .fill)
-                        .frame(height: 220)
-                        .clipped()
-                }
-                .tag(index)
+    private func errorView(_ error: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 36))
+                .foregroundColor(.white)
+            Text("تعذر تحميل المحتوى")
+                .foregroundColor(.white)
+                .font(.headline)
+            Text(error)
+                .foregroundColor(.gray)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Button("إعادة المحاولة") {
+                Task { await homeViewModel.refresh() }
             }
+            .buttonStyle(.borderedProminent)
         }
-        .tabViewStyle(.page(indexDisplayMode: .automatic))
-        .frame(height: 220)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 80)
     }
 }
 
-struct VideoSection: View {
+struct ModernBannerCarousel: View {
+    let banners: [VideoModel]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(banners.prefix(5), id: \.nb) { video in
+                    NavigationLink(destination: VideoDetailView(video: video)) {
+                        ZStack(alignment: .bottomLeading) {
+                            KFImage(URL(string: video.posterUrl ?? ""))
+                                .resizable()
+                                .aspectRatio(16/9, contentMode: .fill)
+                                .frame(width: 320, height: 190)
+                                .clipShape(RoundedRectangle(cornerRadius: 18))
+
+                            LinearGradient(colors: [.clear, .black.opacity(0.9)], startPoint: .top, endPoint: .bottom)
+                                .clipShape(RoundedRectangle(cornerRadius: 18))
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(video.title)
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                Text(video.year ?? "")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+                            .padding(12)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+}
+
+struct ModernVideoSection: View {
     let title: String
     let videos: [VideoModel]
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.title3.weight(.bold))
                 .foregroundColor(.white)
                 .padding(.horizontal)
-            
+
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 12) {
+                HStack(spacing: 12) {
                     ForEach(videos) { video in
                         NavigationLink(destination: VideoDetailView(video: video)) {
-                            VideoCard(video: video)
+                            ModernVideoCard(video: video)
                         }
                     }
                 }
@@ -104,46 +130,65 @@ struct VideoSection: View {
     }
 }
 
-struct VideoCard: View {
+struct ModernVideoCard: View {
     let video: VideoModel
-    
+
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 6) {
             KFImage(URL(string: video.thumbnailUrl ?? ""))
                 .resizable()
                 .aspectRatio(2/3, contentMode: .fill)
-                .frame(width: 120, height: 180)
-                .cornerRadius(8)
-                .clipped()
-            
+                .frame(width: 132, height: 188)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(alignment: .topTrailing) {
+                    if let rate = video.rate {
+                        Text("⭐️ \(rate)")
+                            .font(.caption2)
+                            .padding(6)
+                            .background(.black.opacity(0.65))
+                            .clipShape(Capsule())
+                            .padding(6)
+                    }
+                }
+
             Text(video.title)
                 .font(.caption)
                 .foregroundColor(.white)
                 .lineLimit(2)
-                .frame(width: 120, alignment: .leading)
+                .frame(width: 132, alignment: .leading)
         }
     }
 }
 
-struct LargeVideoCard: View {
-    let video: VideoModel
-    
+struct HomeLoadingSkeleton: View {
     var body: some View {
-        NavigationLink(destination: VideoDetailView(video: video)) {
-            VStack(alignment: .leading) {
-                KFImage(URL(string: video.posterUrl ?? ""))
-                    .resizable()
-                    .aspectRatio(16/9, contentMode: .fill)
-                    .frame(height: 180)
-                    .cornerRadius(10)
-                    .clipped()
-                
-                Text(video.title)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+        VStack(alignment: .leading, spacing: 16) {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white.opacity(0.11))
+                .frame(height: 190)
+                .padding(.horizontal)
+
+            ForEach(0..<3, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 10) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.white.opacity(0.11))
+                        .frame(width: 120, height: 18)
+                        .padding(.horizontal)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(0..<5, id: \.self) { _ in
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.white.opacity(0.11))
+                                    .frame(width: 132, height: 188)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
             }
         }
+        .redacted(reason: .placeholder)
     }
 }
 
